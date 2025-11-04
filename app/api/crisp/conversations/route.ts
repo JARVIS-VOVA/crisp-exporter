@@ -10,19 +10,28 @@ export async function GET(req: Request) {
     const crispKey = url.searchParams.get("crisp_key");
     const crispWebsiteId = url.searchParams.get("crisp_website_id");
 
+    const filterDateStart = url.searchParams.get("filter_date_start");
+    const filterDateEnd = url.searchParams.get("filter_date_end");
+
     if (!crispIdentifier || !crispKey || !crispWebsiteId) {
       return NextResponse.json({ error: "Missing Crisp credentials" }, { status: 400 });
     }
 
-    const res = await axios.get(
-      `https://api.crisp.chat/v1/website/${crispWebsiteId}/conversations/${page}`,
-      {
-        headers: {
-          "X-Crisp-Tier": "plugin",
-          Authorization: `Basic ${Buffer.from(`${crispIdentifier}:${crispKey}`).toString("base64")}`,
-        },
-      }
-    );
+    const params = new URLSearchParams({
+      per_page: "50",
+    });
+
+    if (filterDateStart) params.append("filter_date_start", filterDateStart);
+    if (filterDateEnd) params.append("filter_date_end", filterDateEnd);
+
+    const crispUrl = `https://api.crisp.chat/v1/website/${crispWebsiteId}/conversations/${page}?${params.toString()}`;
+
+    const res = await axios.get(crispUrl, {
+      headers: {
+        "X-Crisp-Tier": "plugin",
+        Authorization: `Basic ${Buffer.from(`${crispIdentifier}:${crispKey}`).toString("base64")}`,
+      },
+    });
 
     return NextResponse.json(res.data);
   } catch (err: any) {

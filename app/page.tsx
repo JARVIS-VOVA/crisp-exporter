@@ -3,6 +3,18 @@
 import React from "react";
 import * as XLSX from "xlsx";
 import { toast } from "sonner";
+import { subMonths, subWeeks, subYears } from "date-fns";
+import { type DateRange } from "react-day-picker"
+
+import { Calendar } from "@/components/ui/calendar"
+import { Button } from "@/components/ui/button"
+
+const formatDate = (date?: Date) => {
+  if (date) {
+    return date.toLocaleDateString("uk-UA", { day: "2-digit", month: "2-digit", year: "numeric" });
+  }
+  return "-"
+}
 
 function formatTimestamp(timestamp: number): string {
   const date = new Date(timestamp);
@@ -27,6 +39,11 @@ export default function Home() {
   const [crispIdentifier, setCrispIdentifier] = React.useState("");
   const [crispKey, setCrispKey] = React.useState("");
   const [crispWebsiteId, setCrispWebsiteId] = React.useState("");
+  const [dateRange, setDateRange] = React.useState<DateRange | undefined>({
+    from: new Date(),
+    to: new Date(),
+  });
+  const [showFilters, setShowFilters] = React.useState(false);
 
   React.useEffect(() => {
     const savedIdentifier = localStorage.getItem("CRISP_IDENTIFIER") || "";
@@ -36,6 +53,25 @@ export default function Home() {
     setCrispKey(savedKey);
     setCrispWebsiteId(savedWebsiteId);
   }, []);
+
+  const quickSelect = (type: string) => {
+    const now = new Date();
+
+    switch (type) {
+      case "today":
+        return setDateRange({ from: now, to: now });
+      case "week":
+        return setDateRange({ from: subWeeks(now, 1), to: now });
+      case "month":
+        return setDateRange({ from: subMonths(now, 1), to: now });
+      case "6months":
+        return setDateRange({ from: subMonths(now, 6), to: now });
+      case "year":
+        return setDateRange({ from: subYears(now, 1), to: now });
+      case "reset":
+        return setDateRange({ from: undefined, to: undefined });
+    }
+  };
 
   const saveSettings = () => {
     localStorage.setItem("CRISP_IDENTIFIER", crispIdentifier);
@@ -68,7 +104,17 @@ export default function Home() {
 
       while (true) {
         setLoadingText(`Loading conversations, page ${page}...`);
-        const url = addCrispKeys(`/api/crisp/conversations?page=${page}`);
+        let url = addCrispKeys(`/api/crisp/conversations?page=${page}`);
+
+        const params = new URLSearchParams();
+        if (dateRange?.from) {
+          params.append("filter_date_start", dateRange.from.toISOString());
+        }
+        if (dateRange?.to) {
+          params.append("filter_date_end", dateRange.to.toISOString());
+        }
+        url += `&${params.toString()}`;
+
         const res = await fetch(url);
         const json = await res.json();
 
@@ -283,7 +329,61 @@ export default function Home() {
           ⚙️ Settings
         </button>
 
-        <div className="flex flex-col gap-4 w-full max-w-xl">
+        <div className="flex flex-col items-center w-full">
+          <Button
+            onClick={() => setShowFilters(!showFilters)}
+            className="mb-4 w-full max-w-xl py-2 rounded-lg bg-yellow-500 text-black hover:bg-yellow-600"
+          >
+            {showFilters ? "Hide filters" : "Show filters"}
+          </Button>
+
+          {showFilters && (
+            <div className="flex flex-col md:flex-row gap-4 w-full max-w-xl py-2">
+              <div className="flex flex-row md:flex-col flex-wrap gap-2 justify-center md:justify-start w-full md:w-auto">
+                <Button variant="outline" size="sm" onClick={() => quickSelect("today")}>
+                  Today
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => quickSelect("week")}>
+                  Last week
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => quickSelect("month")}>
+                  Last month
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => quickSelect("6months")}>
+                  Last 6 months
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => quickSelect("year")}>
+                  Last year
+                </Button>
+                <Button variant="secondary" size="sm" onClick={() => quickSelect("reset")}>
+                  All time
+                </Button>
+              </div>
+
+              <div className="w-full flex justify-center md:justify-end md:flex-1">
+                <Calendar
+                  mode="range"
+                  defaultMonth={dateRange?.from}
+                  selected={dateRange}
+                  onSelect={setDateRange}
+                  className="rounded-lg border shadow-sm"
+                />
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="w-full max-w-xl mx-auto p-4 rounded-lg border bg-zinc-50 dark:bg-zinc-900 dark:border-zinc-700 text-zinc-800 dark:text-zinc-100 shadow-sm py-2">
+          <h3 className="font-semibold mb-2 text-sm">Selected filters:</h3>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <div className="text-sm">
+              <span className="font-medium">Date range:</span>{" "}
+              {formatDate(dateRange?.from)} — {formatDate(dateRange?.to)}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-4 w-full max-w-xl mt-15">
           <button
             onClick={getConversations}
             disabled={loading}
