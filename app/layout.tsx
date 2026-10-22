@@ -15,8 +15,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Crisp Exporter - Export Conversations & Messages to Excel",
-  description: "Crisp Exporter is a web app that allows you to fetch Crisp conversations and messages and export them to Excel",
+  title: "Crisp Exporter - Export Conversations & Messages to JSON, CSV & Excel",
+  description: "Crisp Exporter is a web app that allows you to fetch Crisp conversations and messages and export them to JSON, CSV and Excel",
   keywords: [
     "crisp Exporter",
     "crisp API",
@@ -24,8 +24,8 @@ export const metadata: Metadata = {
     "crisp export conversations",
   ],
   openGraph: {
-    title: "Crisp Exporter - Export Conversations & Messages to Excel",
-    description: "Web app to fetch Crisp conversations and messages and export them to Excel.",
+    title: "Crisp Exporter - Export Conversations & Messages to JSON, CSV & Excel",
+    description: "Web app to fetch Crisp conversations and messages and export them to JSON, CSV and Excel.",
     url: "https://crisp-exporter.vercel.app",
     siteName: "Crisp Exporter",
     locale: "en_US",

@@ -1,40 +1,25 @@
 import { NextResponse } from "next/server";
 import axios from "axios";
+import { crispConnection, crispErrorResponse } from "@/lib/crisp-api";
 
 export async function GET(req: Request) {
+  const url = new URL(req.url);
+  const sessionId = url.searchParams.get("session_id");
+  const before = url.searchParams.get("timestamp_before");
+  if (!sessionId) return NextResponse.json({ error: "session_id required" }, { status: 400 });
+  if (before !== null && (!/^-?\d+$/.test(before) || !Number.isSafeInteger(Number(before)))) {
+    return NextResponse.json({ error: "timestamp_before must be an integer in milliseconds" }, { status: 400 });
+  }
+  const connection = crispConnection(req);
+  if (!connection) return NextResponse.json({ error: "Missing Crisp credentials" }, { status: 400 });
+
   try {
-    const url = new URL(req.url);
-
-    const sessionId = url.searchParams.get("session_id");
-    const crispIdentifier = url.searchParams.get("crisp_identifier");
-    const crispKey = url.searchParams.get("crisp_key");
-    const crispWebsiteId = url.searchParams.get("crisp_website_id");
-
-    if (!sessionId) {
-      return NextResponse.json({ error: "session_id required" }, { status: 400 });
-    }
-    if (!crispIdentifier || !crispKey || !crispWebsiteId) {
-      return NextResponse.json({ error: "Missing Crisp credentials" }, { status: 400 });
-    }
-
-    const res = await axios.get(
-      `https://api.crisp.chat/v1/website/${crispWebsiteId}/conversation/${sessionId}/messages`,
-      {
-        headers: {
-          "X-Crisp-Tier": "plugin",
-          Authorization: `Basic ${Buffer.from(`${crispIdentifier}:${crispKey}`).toString("base64")}`,
-        },
-      }
+    const response = await axios.get(
+      `${connection.baseUrl}/conversation/${encodeURIComponent(sessionId)}/messages`,
+      { ...connection.config, params: before === null ? {} : { timestamp_before: before } },
     );
-
-    return NextResponse.json(res.data);
-  } catch (err: any) {
-    console.error(err);
-
-    if (err.response?.data) {
-      return NextResponse.json({ error: err.response.data }, { status: err.response.status || 500 });
-    }
-
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return NextResponse.json(response.data, { headers: { "Cache-Control": "no-store" } });
+  } catch (error: unknown) {
+    return crispErrorResponse(error);
   }
 }

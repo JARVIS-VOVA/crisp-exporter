@@ -1,46 +1,27 @@
 import { NextResponse } from "next/server";
 import axios from "axios";
+import { crispConnection, crispErrorResponse } from "@/lib/crisp-api";
 
 export async function GET(req: Request) {
+  const url = new URL(req.url);
+  const page = url.searchParams.get("page") || "1";
+  if (!/^\d+$/.test(page) || !Number.isSafeInteger(Number(page)) || Number(page) < 1) {
+    return NextResponse.json({ error: "page must be a positive integer" }, { status: 400 });
+  }
+  const connection = crispConnection(req);
+  if (!connection) return NextResponse.json({ error: "Missing Crisp credentials" }, { status: 400 });
+
+  const params = new URLSearchParams({ per_page: "50" });
+  for (const name of ["filter_date_start", "filter_date_end"]) {
+    const value = url.searchParams.get(name);
+    if (value) params.set(name, value);
+  }
   try {
-    const url = new URL(req.url);
-
-    const page = url.searchParams.get("page") || "1";
-    const crispIdentifier = url.searchParams.get("crisp_identifier");
-    const crispKey = url.searchParams.get("crisp_key");
-    const crispWebsiteId = url.searchParams.get("crisp_website_id");
-
-    const filterDateStart = url.searchParams.get("filter_date_start");
-    const filterDateEnd = url.searchParams.get("filter_date_end");
-
-    if (!crispIdentifier || !crispKey || !crispWebsiteId) {
-      return NextResponse.json({ error: "Missing Crisp credentials" }, { status: 400 });
-    }
-
-    const params = new URLSearchParams({
-      per_page: "50",
+    const response = await axios.get(`${connection.baseUrl}/conversations/${page}`, {
+      ...connection.config, params,
     });
-
-    if (filterDateStart) params.append("filter_date_start", filterDateStart);
-    if (filterDateEnd) params.append("filter_date_end", filterDateEnd);
-
-    const crispUrl = `https://api.crisp.chat/v1/website/${crispWebsiteId}/conversations/${page}?${params.toString()}`;
-
-    const res = await axios.get(crispUrl, {
-      headers: {
-        "X-Crisp-Tier": "plugin",
-        Authorization: `Basic ${Buffer.from(`${crispIdentifier}:${crispKey}`).toString("base64")}`,
-      },
-    });
-
-    return NextResponse.json(res.data);
-  } catch (err: any) {
-    console.error(err);
-
-    if (err.response?.data) {
-      return NextResponse.json({ error: err.response.data }, { status: err.response.status || 500 });
-    }
-
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return NextResponse.json(response.data, { headers: { "Cache-Control": "no-store" } });
+  } catch (error: unknown) {
+    return crispErrorResponse(error);
   }
 }
